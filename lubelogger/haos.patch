@@ -1,0 +1,83 @@
+diff --git a/CarCareTracker.csproj b/CarCareTracker.csproj
+index 182d2cc..c761ec5 100644
+--- a/CarCareTracker.csproj
++++ b/CarCareTracker.csproj
+@@ -7,6 +7,7 @@
+   </PropertyGroup>
+
+   <ItemGroup>
++    <PackageReference Include="Microsoft.AspNetCore.DataProtection.Extensions" Version="10.0.0" />
+     <PackageReference Include="CsvHelper" Version="33.1.0" />
+     <PackageReference Include="LiteDB" Version="5.0.17" />
+     <PackageReference Include="MailKit" Version="5.0.0" />
+diff --git a/Program.cs b/Program.cs
+index 77faac1..a0f9f03 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,6 +5,7 @@ using CarCareTracker.Logic;
+ using CarCareTracker.Middleware;
+ using Microsoft.AspNetCore.Authentication;
+ using Microsoft.AspNetCore.Authorization;
++using Microsoft.AspNetCore.DataProtection;
+ using Microsoft.AspNetCore.Http.Features;
+ using Microsoft.AspNetCore.Server.Kestrel.Core;
+ using Microsoft.Extensions.FileProviders;
+@@ -125,7 +126,8 @@ builder.Services.AddSignalR();
+
+ //configure Auth
+ builder.Services.AddHttpClient();
+-builder.Services.AddDataProtection();
++builder.Services.AddDataProtection()
++    .PersistKeysToFileSystem(new DirectoryInfo("/data/keys"));
+ builder.Services.AddHttpContextAccessor();
+ builder.Services.AddAuthentication("AuthN").AddScheme<AuthenticationSchemeOptions, Authen>("AuthN", opts => { });
+ builder.Services.AddAuthorization(options =>
+@@ -146,6 +148,16 @@ builder.Services.Configure<FormOptions>(options =>
+
+ var app = builder.Build();
+
++app.Use(async (context, next) =>
++{
++    var ingressPath = context.Request.Headers["X-Ingress-Path"].FirstOrDefault();
++    if (!string.IsNullOrWhiteSpace(ingressPath))
++    {
++        context.Request.PathBase = new PathString(ingressPath);
++    }
++    await next();
++});
++
+ //configure the HTTP request pipeline.
+ app.UseExceptionHandler("/Error");
+ app.UseStatusCodePagesWithReExecute("/Error/{0}");
+diff --git a/Views/Shared/_Layout.cshtml b/Views/Shared/_Layout.cshtml
+index e03f565..b578ac6 100644
+--- a/Views/Shared/_Layout.cshtml
++++ b/Views/Shared/_Layout.cshtml
+@@ -30,6 +30,10 @@
+ }
+ <html lang="en" data-bs-theme="@(useDarkMode ? "dark" : "light")">
+ <head>
++    <base href="@(Context.Request.PathBase.HasValue ? Context.Request.PathBase.Value + "/" : "/")" />
++    <script>
++        window.BASE_URL = "@(Context.Request.PathBase.HasValue ? Context.Request.PathBase.Value : "")";
++    </script>
+     <meta charset="utf-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <meta name="apple-mobile-web-app-title" content="LubeLogger" />
+diff --git a/wwwroot/js/shared.js b/wwwroot/js/shared.js
+index 0445236..e93816f 100644
+--- a/wwwroot/js/shared.js
++++ b/wwwroot/js/shared.js
+@@ -1,4 +1,11 @@
+-﻿$.expr.pseudos.containsNC = $.expr.createPseudo(function (arg) {
++$(document).ready(function () {
++    $.ajaxPrefilter(function (options) {
++        if (options.url && options.url.startsWith('/') && window.BASE_URL) {
++            options.url = window.BASE_URL + options.url;
++        }
++    });
++});
++$.expr.pseudos.containsNC = $.expr.createPseudo(function (arg) {
+     return function (elem) {
+         return $(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0;
+     };
