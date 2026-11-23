@@ -35,12 +35,24 @@ Lubelogger and Hargata Softworks are not affiliated with this repository.
 ## To-Do
 
 - [x] Enable HAOS ingress and direct Web UI access in `config.yaml`.
+- [x] Build the complete HAOS add-on Docker image on `amd64`.
 - [ ] Replace or dynamically rewrite remaining hardcoded absolute routes in `v1.7.5`.
 - [ ] Verify remaining Razor `<a>`, `<img>`, `<form>`, and JavaScript navigation URLs under Home Assistant ingress.
 - [ ] Replace server-generated root-relative redirect and download paths if browser-side prefixing is insufficient.
 - [ ] Verify SignalR, file uploads/downloads, backups, restore, login, registration, logout, and redirects in an actual HAOS Ingress session.
 - [ ] Test direct port `8080` behavior separately from ingress.
-- [ ] Build the complete HAOS add-on Docker image on `amd64`.
 - [ ] Validate upgrade and downgrade persistence in `/data`.
 - [ ] Re-enable authentication and verify that ASP.NET Data Protection keys survive restarts.
 - [ ] Update `config.yaml` and `haos.patch` together for future Lubelogger releases.
+
+## Path forward
+
+1. Patch ingress routing centrally:
+   - Rewrite server-generated `Location` headers under `X-Ingress-Path`.
+   - Prefix JavaScript navigation and AJAX requests that use root-relative paths.
+   - Replace hardcoded Razor asset and navigation URLs with `Url.Content()` or relative URLs.
+2. Add an ingress route-inventory check that searches Lubelogger source for root-relative navigation, downloads, forms, assets, and SignalR URLs.
+3. Install the app on a real HAOS instance and test login, logout, registration, uploads, downloads, backups, restore, admin, setup, and vehicle operations through ingress.
+4. Test direct port `8080` access separately, then rebuild and restart the app to verify `/data` and `/data/keys` persistence.
+5. Enable authentication and verify key persistence across restarts and app rebuilds.
+6. Before future Lubelogger releases, run a clean patch check, .NET publish, Docker build, route scan, and HAOS ingress smoke test.
